@@ -3,6 +3,7 @@ from megfile import smart_open, smart_exists, smart_sync, smart_remove, smart_gl
 import tempfile
 import shutil
 import threading
+import math
 
 # Define global variables
 DELETE_THRESHOLD = 5
@@ -21,29 +22,37 @@ def log(message,log_path):
         log_file.write(message + '\n')
 
 def extract_frames(video_path, output_folder):
+    interval = 13
+    
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-    if total_frames <= 10:
-        frame_step = 1
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+              
+    if total_frames < (interval-1) * fps:
+        frame_step = fps
     else:
-        frame_step = total_frames // 10
+        frame_step = (total_frames - 1) // (interval -2)
 
     frame_count = 0
+    sample_num = 0
     success = True
 
     while success:
         success, image = cap.read()
-        if frame_count % frame_step == 0 and frame_count != total_frames:
+        if frame_count % frame_step == 0 or frame_count == 0 or frame_count == total_frames - 1:
             try:
+                if sample_num > interval:
+                    assert False, "sample_num over interval!"
                 cv2.imwrite(f'{output_folder}/frame_{frame_count}.jpg', image)
+                sample_num += 1
             except:
                 import ipdb
                 ipdb.set_trace()
         frame_count += 1
 
     cap.release()
+
 
 def get_processed(log_file):
     with open(log_file,"r") as log:
@@ -82,7 +91,7 @@ def process_video(video_path):
         process(cache_video_path)
         with threading.Lock():
             progress_count += 1
-            progress_message = f"Processed video {progress_count}/{total_videos_count} ({video_file})"
+            progress_message = f"Processed video {progress_count}/{total_videos_count} ({video_path})"
             log_progress(progress_message,progress_log_path)
         
     except Exception as e:
