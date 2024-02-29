@@ -1,3 +1,4 @@
+import cv2
 from megfile import smart_open, smart_exists, smart_sync, smart_remove, smart_glob
 import tempfile
 import shutil
@@ -19,6 +20,31 @@ def log(message,log_path):
     with open(log_path, 'a') as log_file:
         log_file.write(message + '\n')
 
+def extract_frames(video_path, output_folder):
+    cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+    if total_frames <= 10:
+        frame_step = 1
+    else:
+        frame_step = total_frames // 10
+
+    frame_count = 0
+    success = True
+
+    while success:
+        success, image = cap.read()
+        if frame_count % frame_step == 0 and frame_count != total_frames:
+            try:
+                cv2.imwrite(f'{output_folder}/frame_{frame_count}.jpg', image)
+            except:
+                import ipdb
+                ipdb.set_trace()
+        frame_count += 1
+
+    cap.release()
+
 def get_processed(log_file):
     with open(log_file,"r") as log:
         return len(log.readlines())
@@ -31,7 +57,6 @@ def load_lines(lines_txt):
     return lines 
 
 def process(video_path):
-    print("complite processing!")
     pass
 
 def process_video(video_path):
@@ -89,7 +114,8 @@ def main():
             future.result()  
 
 def debug():
-    line = "s3://kanelin/interlink7m/Howto-Interlink7M_subset_w_all_clips_train/26n5ePOXc5I/clip_0.mp4"
+    line = "s3://kanelin/interlink7m/Howto-Interlink7M_subset_w_all_clips_train/26n5ePOXc5I/clip_2.mp4"
     process_video(line)
 
     
+debug()
