@@ -21,7 +21,7 @@ progress_count = 0
 total_videos_count = 1847380   # all-train:1847380 all-val:237730 sampled-train:3679476 sampled-val:315160
 cached_files = []
 
-# Define log path
+# Define log path for tos
 error_log_path = "/data/hypertext/kangheng/project/data_utils/"+TYPE+"_"+"error_details.txt"
 error_list_path = "/data/hypertext/kangheng/project/data_utils/"+TYPE+"_"+"error_list.txt"
 progress_log_path = "/data/hypertext/kangheng/project/data_utils/"+TYPE+"_"+"progress.txt"  #For Howto-Interlink7M_subset_w_all_clips_val, the TYPE is not need.
@@ -69,7 +69,7 @@ def resume_lines(lines):
 
 def sample_last_frame_from_oringle(output_folder):
     # This function is used to handle situations where the last video segment is too short to load
-    original_video = output_folder.replace("/data/hypertext/kangheng/howto100m/samples","s3://kanelin/interlink7m")
+    original_video = output_folder.replace("/data/hypertext/kangheng/howto100m/samples","s3://kanelin/interlink7m") # for brainpp, original_video = output_folder.replace("/data/howto100m/samples","s3://kanelin/interlink7m")
     original_video = "/".join(original_video.split("/")[:-1])+"/"+original_video.split("/")[-2]+".mp4"
     original_video = get_cache_video(original_video)
     cap = cv2.VideoCapture(original_video)
@@ -137,7 +137,7 @@ def load_lines(lines_txt,prefix=""):
     return lines 
 
 def sample_process(local_video_path,s3_video_path):
-    output_folder = s3_video_path.replace("s3://kanelin/interlink7m", "/data/hypertext/kangheng/howto100m/samples")[:-4]
+    output_folder = s3_video_path.replace("s3://kanelin/interlink7m", "/data/hypertext/kangheng/howto100m/samples")[:-4] # for brainpp, output_folder = s3_video_path.replace("s3://kanelin/interlink7m", "/data/howto100m/samples")[:-4]
     extract_frames(local_video_path,output_folder=output_folder)
 
 def tracking_process(local_video_path):
@@ -198,15 +198,15 @@ def ditribute_main(machine_id):
     global error_list_path
     global progress_log_path
     
-    # Maintain logs based on machine ID
-    log_prefix=os.path.join("/data/hypertext/kangheng/project/data_utils/result",TYPE)
+    # Maintain logs based on machine ID for TOS
+    log_prefix=os.path.join("/data/hypertext/kangheng/project/data_utils/result",TYPE) # for brainpp, log_prefix=os.path.join("/data/result",TYPE) 
     error_log_path = os.path.join(log_prefix,str(machine_id)+"_error_details.txt")
     error_list_path = os.path.join(log_prefix,str(machine_id)+"_error_list.txt")
     progress_log_path = os.path.join(log_prefix,str(machine_id)+"_progress.txt")
     
     # Get the number of processed video
     progress_count = get_processed(progress_log_path)
-    lines_file = "/data/hypertext/kangheng/project/merlin_track/videos/txt/" + TYPE + ".txt"
+    lines_file = "/data/hypertext/kangheng/project/merlin_track/videos/txt/" + TYPE + ".txt" # for brainpp, lines_file = "/data/videos/txt/" + TYPE + ".txt"
     lines = load_lines(lines_file)
     lines = get_devided_lines(lines,machine_id,interval=10)
     
