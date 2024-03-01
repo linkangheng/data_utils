@@ -9,20 +9,22 @@ import shutil
 import threading
 import math
 from tqdm import tqdm 
+import numpy as np
+import argparse
 
 # Define global variables
-TYPE = "Howto-Interlink7M_subset_w_all_clips_val" #Howto-Interlink7M_subset_w_all_clips_train,Howto-Interlink7M_subset_w_all_clips_val,Howto-Interlink7M_subset_w_sampled_clips_train，Howto-Interlink7M_subset_w_sampled_clips_val
-max_workers = 32
-DELETE_THRESHOLD = 100
+TYPE = "Howto-Interlink7M_subset_w_all_clips_train" #Howto-Interlink7M_subset_w_all_clips_train,Howto-Interlink7M_subset_w_all_clips_val,Howto-Interlink7M_subset_w_sampled_clips_train，Howto-Interlink7M_subset_w_sampled_clips_val
+max_workers = 512
+DELETE_THRESHOLD = 1000
 delete_counter = 0
 progress_count = 0
-total_videos_count = 237731   #all-train:184381 all-val:237730 sampled-val:237731 
+total_videos_count = 1847380   # all-train:1847380 all-val:237730 sampled-train:3679476 sampled-val:315160
 cached_files = []
 
 # Define log path
-error_log_path = "/data/hypertext/kangheng/project/data_utils/error_details.txt"
-error_list_path = "/data/hypertext/kangheng/project/data_utils/error_list.txt"
-progress_log_path = "/data/hypertext/kangheng/project/data_utils/progress.txt"
+error_log_path = "/data/hypertext/kangheng/project/data_utils/"+TYPE+"_"+"error_details.txt"
+error_list_path = "/data/hypertext/kangheng/project/data_utils/"+TYPE+"_"+"error_list.txt"
+progress_log_path = "/data/hypertext/kangheng/project/data_utils/"+TYPE+"_"+"progress.txt"  #For Howto-Interlink7M_subset_w_all_clips_val, the TYPE is not need.
 
 def log(message,log_path):
     with open(log_path, 'a') as log_file:
@@ -43,14 +45,24 @@ def get_cache_video(video_path):
             cache_video_path = temp_file.name
     return cache_video_path
 
+def get_devided_lines(lines,machine_id,interval=8):
+    # TODO Divide the lines into 8 parts and run them on different machines
+    # 划分数组lines，并取第machine_id个部分
+    lines = lines[int(len(lines)/interval)*machine_id:int(len(lines)/interval)*(machine_id+1)]
+    lines = resume_lines(lines)
+    return lines
+
 def resume_lines(lines):
     prefix = "s3://kanelin/interlink7m/"+TYPE+"/"
     print("Restarting from last processing endpoint...\n")
     processed = []
-    with open(progress_log_path, 'r') as log_file:
-        for i in log_file:
-            processed.append(prefix+re.search(r'\((.*?)\)', i).group(1))
-        processed = set(processed)
+    try:
+        with open(progress_log_path, 'r') as log_file:
+            for i in log_file:
+                processed.append(prefix+re.search(r'\((.*?)\)', i).group(1))
+            processed = set(processed)
+    except FileNotFoundError:
+        processed=[]
     lines = [line for line in lines if line not in processed]
     print("Load all unprocessed videos!")
     return lines
@@ -109,8 +121,11 @@ def extract_frames(video_path, output_folder):
 
 
 def get_processed(log_file):
-    with open(log_file,"r") as log:
-        return len(log.readlines())
+    try:
+        with open(log_file,"r") as log:
+            return len(log.readlines())
+    except FileNotFoundError:
+        return 0
 
 def load_lines(lines_txt,prefix=""):
     if len(prefix)!=0:
@@ -170,16 +185,46 @@ def main():
     lines = load_lines(lines_file) 
     lines = resume_lines(lines)
 
-    for line in tqdm(lines,total=len(lines)):
-        process_video(line)
-    # with ThreadPoolExecutor(max_workers) as executor:
-    #     futures = [executor.submit(process_video, line) for line in lines]
-    #     for future in tqdm(as_completed(futures), total=len(futures), desc="Processing videos"):
-    #         future.result()
+    # for line in tqdm(lines,total=len(lines)):
+    #     process_video(line)
+    with ThreadPoolExecutor(max_workers) as executor:
+        futures = [executor.submit(process_video, line) for line in lines]
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing videos"):
+            future.result()
+
+def ditribute_main(machine_id):
+    global progress_count
+    global error_log_path
+    global error_list_path
+    global progress_log_path
+    
+    # Maintain logs based on machine ID
+    log_prefix=os.path.join("/data/hypertext/kangheng/project/data_utils/result",TYPE)
+    error_log_path = os.path.join(log_prefix,str(machine_id)+"_error_details.txt")
+    error_list_path = os.path.join(log_prefix,str(machine_id)+"_error_list.txt")
+    progress_log_path = os.path.join(log_prefix,str(machine_id)+"_progress.txt")
+    
+    # Get the number of processed video
+    progress_count = get_processed(progress_log_path)
+    lines_file = "/data/hypertext/kangheng/project/merlin_track/videos/txt/" + TYPE + ".txt"
+    lines = load_lines(lines_file)
+    lines = get_devided_lines(lines,machine_id,interval=10)
+    
+    # for line in tqdm(lines,total=len(lines)):
+    #     process_video(line)
+    with ThreadPoolExecutor(max_workers) as executor:
+        futures = [executor.submit(process_video, line) for line in lines]
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing videos"):
+            future.result()
 
 def debug():
     line = "s3://kanelin/interlink7m/Howto-Interlink7M_subset_w_all_clips_train/26n5ePOXc5I/clip_3.mp4"
     process_video(line)
 
 if __name__ == "__main__":
-    main()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--machine_id", type=int, default=0,help="Machine ID")
+    # args = parser.parse_args()
+    # machine_id = args.machine_id
+    machine_id = 0
+    ditribute_main(machine_id)
