@@ -32,3 +32,17 @@ video_cache.clear_video_cache()
 ```
 
 Feel free to explore and use these functions to enhance your data processing tasks efficiently.
+
+## packing_json.py
+
+The `packing_json.py` file contains functions for processing video data and generating JSON output. It includes functions for loading TSV data into a dictionary and processing individual video data to create a JSON output.
+
+### Functions Included:
+
+1. `load_tsv_to_dict(tsv_path)`: Function to load TSV data into a dictionary format.
+2. `process_single_video(line)`: Function to process individual video data and generate JSON output.
+3. `main()`: Main function to execute the data processing and JSON generation.
+
+### Usage:
+
+Change the global variable `BASE`,`tsv_path`,`local_prefix`,`local_prefix`
